@@ -31,6 +31,9 @@ import org.kde.kdeconnect.ui.compose.KdeTopAppBar
 import org.kde.kdeconnect.extensions.safeDrawPadding
 import org.kde.kdeconnect_tp.R
 import androidx.core.content.edit
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val INPUT_CACHE_KEY = "compose_send_input_cache"
 
@@ -64,7 +67,31 @@ class ComposeSendActivity : AppCompatActivity() {
             finish()
             return
         }
-        plugin.sendText(userInput.value)
+        val text = userInput.value ?: ""
+        var isLineDelayed = false
+
+        lifecycleScope.launch {
+            for (char in text) {
+
+                plugin.sendText(char.toString())
+
+                // Base delay
+                var delayTime = if (char == '\n') {
+                    isLineDelayed = false
+                    (150..300).random().toLong()
+                } else {
+                    (50..100).random().toLong()
+                }
+
+                // Random pause (40% chance)
+                if (!isLineDelayed && (1..100).random() <= 40) {
+                    delayTime += (400..2000).random()
+                    isLineDelayed = true
+                }
+
+                delay(delayTime)
+            }
+        }
         clearComposeInput()
     }
 
