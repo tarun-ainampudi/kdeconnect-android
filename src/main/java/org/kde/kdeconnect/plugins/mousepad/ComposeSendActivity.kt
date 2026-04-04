@@ -68,6 +68,7 @@ class ComposeSendActivity : AppCompatActivity() {
             return
         }
         val text = userInput.value ?: ""
+        var randomPause = 30
 
         lifecycleScope.launch {
             for (temp_str in text.split("\n")) {
@@ -75,14 +76,17 @@ class ComposeSendActivity : AppCompatActivity() {
                 if (!temp_str.isEmpty()) {
                     for (char in temp_str.trim()){
                         plugin.sendText(char.toString())
-                        delay((90..120).random().toLong())
+                        delay((100..250).random().toLong())
                     }
                 }
                 plugin.sendEnter()
-                delay((150..300).random().toLong())
-                // Random pause (40% chance)
-                if ((1..100).random() <= 40) {
-                    delay((400..2000).random().toLong())
+                delay((750..2500).random().toLong())
+
+                if((0..100).random() <= randomPause){
+                    delay((10000..15000).random().toLong())
+                    randomPause = 30
+                }else{
+                    randomPause += (5..10).random()
                 }
 
             }
