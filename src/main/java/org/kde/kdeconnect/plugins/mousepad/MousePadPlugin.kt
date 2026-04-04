@@ -178,6 +178,12 @@ class MousePadPlugin : Plugin() {
         sendPacket(np)
     }
 
+    fun sendEnter(){
+        val np = NetworkPacket(PACKET_TYPE_MOUSEPAD_REQUEST)
+        np["specialKey"] = KeyListenerView.SpecialKeysMap.get(KeyEvent.KEYCODE_ENTER)
+        sendPacket(np)
+    }
+
     fun sendPacket(np: NetworkPacket) {
         device.sendPacket(np)
     }

@@ -68,28 +68,23 @@ class ComposeSendActivity : AppCompatActivity() {
             return
         }
         val text = userInput.value ?: ""
-        var isLineDelayed = false
 
         lifecycleScope.launch {
-            for (char in text) {
+            for (temp_str in text.split("\n")) {
 
-                plugin.sendText(char.toString())
-
-                // Base delay
-                var delayTime = if (char == '\n') {
-                    isLineDelayed = false
-                    (150..300).random().toLong()
-                } else {
-                    (50..100).random().toLong()
+                if (!temp_str.isEmpty()) {
+                    for (char in temp_str.trim()){
+                        plugin.sendText(char.toString())
+                        delay((90..120).random().toLong())
+                    }
                 }
-
+                plugin.sendEnter()
+                delay((150..300).random().toLong())
                 // Random pause (40% chance)
-                if (!isLineDelayed && (1..100).random() <= 40) {
-                    delayTime += (400..2000).random()
-                    isLineDelayed = true
+                if ((1..100).random() <= 40) {
+                    delay((400..2000).random().toLong())
                 }
 
-                delay(delayTime)
             }
         }
         clearComposeInput()
