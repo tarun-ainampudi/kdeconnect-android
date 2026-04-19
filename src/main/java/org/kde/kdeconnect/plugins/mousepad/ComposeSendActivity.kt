@@ -12,7 +12,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Scaffold
@@ -40,6 +42,9 @@ private const val INPUT_CACHE_KEY = "compose_send_input_cache"
 class ComposeSendActivity : AppCompatActivity() {
     private var deviceId: String? = null
     private val userInput = mutableStateOf(String())
+    private val charDelayStr = mutableStateOf("80")
+    private val lineDelayStr = mutableStateOf("1250")
+    private val rLineDelayStr = mutableStateOf("3200")
     private val prefs by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,28 +72,44 @@ class ComposeSendActivity : AppCompatActivity() {
             finish()
             return
         }
+
         val text = userInput.value ?: ""
-        var randomPause = 30
+        val charDelay = (charDelayStr.value.trim().toIntOrNull() ?: 80).coerceIn(0,100)
+        val lineDelay = (lineDelayStr.value.trim().toIntOrNull() ?: 1250).coerceIn(0,2000)
+        val randomLineDelay = (rLineDelayStr.value.trim().toIntOrNull() ?: 3200).coerceIn(0,10000)
+        val tempList = text.split("\n")
 
-        lifecycleScope.launch {
-            for (temp_str in text.split("\n")) {
+        if (charDelay == 0 && lineDelay == 0 &&  randomLineDelay == 0){
+            lifecycleScope.launch {
+                for(line in tempList){
+                    plugin.sendText(line.trim());
+                    plugin.sendEnter();
+                }
+            }
+        }else{
+            var nPauses : Int = if(lineDelay > 0 && randomLineDelay > 0) tempList.size else -1
 
-                if (!temp_str.isEmpty()) {
-                    for (char in temp_str.trim()){
-                        plugin.sendText(char.toString())
-                        delay((100..250).random().toLong())
+            lifecycleScope.launch {
+                for (tempStr in tempList) {
+
+                    if (!tempStr.isEmpty()) {
+                        for (char in tempStr.trim()){
+                            plugin.sendText(char.toString())
+                            delay((charDelay..charDelay+100).random().toLong())
+                        }
+                    }
+
+                    plugin.sendEnter()
+
+                    if((0..100).random() <= 30 && nPauses > 0){
+                        delay((randomLineDelay..randomLineDelay+1000).random().toLong())
+                        nPauses -= 1
+                    } else if (lineDelay > 0) {
+                        delay((lineDelay..lineDelay + 500).random().toLong())
+                    }else{
+                        continue
                     }
                 }
-                plugin.sendEnter()
-                delay((750..2500).random().toLong())
-
-                if((0..100).random() <= randomPause){
-                    delay((10000..15000).random().toLong())
-                    randomPause = 30
-                }else{
-                    randomPause += (5..10).random()
-                }
-
             }
         }
         clearComposeInput()
@@ -122,15 +143,45 @@ class ComposeSendActivity : AppCompatActivity() {
                     KdeTextField(
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
-                            .padding(bottom = 80.dp)
+                            .padding(bottom = 150.dp)
                             .align(Alignment.BottomStart)
                             .fillMaxWidth(),
                         input = userInput,
                         label = stringResource(R.string.click_here_to_type),
                     )
+                    KdeTextField(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(start = 150.dp)
+                            .padding(bottom = 10.dp)
+                            .align(Alignment.BottomEnd),
+                        input = rLineDelayStr,
+                        label = stringResource(R.string.rline_delay),
+                    )
+                    KdeTextField(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .width(140.dp)
+                            .padding(bottom = 10.dp)
+                            .align(Alignment.BottomStart),
+                        input = lineDelayStr,
+                        label = stringResource(R.string.line_delay),
+                    )
+                    KdeTextField(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .width(140.dp)
+                            .padding(bottom = 80.dp)
+                            .align(Alignment.BottomStart),
+                        input = charDelayStr,
+                        label = stringResource(R.string.char_delay),
+                    )
                     KdeTextButton(
                         onClick = { sendComposed() },
-                        modifier = Modifier.padding(all = 16.dp).align(Alignment.BottomEnd),
+                        modifier = Modifier
+                            .padding(all = 16.dp)
+                            .padding(bottom = 80.dp)
+                            .align(Alignment.BottomEnd),
                         enabled = userInput.value.isNotEmpty(),
                         text = stringResource(R.string.send_compose),
                         iconLeft = Icons.Default.Send,
