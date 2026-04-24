@@ -12,12 +12,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
@@ -36,6 +39,7 @@ import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 private const val INPUT_CACHE_KEY = "compose_send_input_cache"
 
@@ -45,6 +49,9 @@ class ComposeSendActivity : AppCompatActivity() {
     private val charDelayStr = mutableStateOf("80")
     private val lineDelayStr = mutableStateOf("1250")
     private val rLineDelayStr = mutableStateOf("3200")
+    private var buttonText = mutableStateOf("Send")
+    private var job: Job? = null
+    private var isTrimChecked = mutableStateOf(true)
     private val prefs by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,43 +80,62 @@ class ComposeSendActivity : AppCompatActivity() {
             return
         }
 
+        if (job != null){
+            job?.cancel()
+            buttonText.value = "Send"
+            return
+        }
+
         val text = userInput.value ?: ""
+        if (text == "") return
         val charDelay = (charDelayStr.value.trim().toIntOrNull() ?: 80).coerceIn(0,100)
         val lineDelay = (lineDelayStr.value.trim().toIntOrNull() ?: 1250).coerceIn(0,2000)
         val randomLineDelay = (rLineDelayStr.value.trim().toIntOrNull() ?: 3200).coerceIn(0,10000)
-        val tempList = text.split("\n")
+        val tempList = if (isTrimChecked.value) text.split("\n").map { it.trim() } else text.split("\n")
 
         if (charDelay == 0 && lineDelay == 0 &&  randomLineDelay == 0){
-            lifecycleScope.launch {
+            job =lifecycleScope.launch {
+                buttonText.value = "Stop"
                 for(line in tempList){
-                    plugin.sendText(line.trim());
+                    plugin.sendText(line);
                     plugin.sendEnter();
                 }
+            }
+            job?.invokeOnCompletion {
+                buttonText.value = "Send"
+                job = null
             }
         }else{
             var nPauses : Int = if(lineDelay > 0 && randomLineDelay > 0) tempList.size else -1
 
-            lifecycleScope.launch {
-                for (tempStr in tempList) {
+            job = lifecycleScope.launch {
+                buttonText.value = "Stop"
+                for ((index,tempStr) in tempList.withIndex()) {
 
                     if (!tempStr.isEmpty()) {
-                        for (char in tempStr.trim()){
+                        for (char in tempStr) {
                             plugin.sendText(char.toString())
-                            delay((charDelay..charDelay+100).random().toLong())
+                            delay((charDelay..charDelay + 100).random().toLong())
                         }
                     }
 
                     plugin.sendEnter()
 
-                    if((0..100).random() <= 30 && nPauses > 0){
-                        delay((randomLineDelay..randomLineDelay+1000).random().toLong())
+                    if (tempList.size - 1 == index) continue
+
+                    if ((0..100).random() <= 30 && nPauses > 0) {
+                        delay((randomLineDelay..randomLineDelay + 1000).random().toLong())
                         nPauses -= 1
                     } else if (lineDelay > 0) {
                         delay((lineDelay..lineDelay + 500).random().toLong())
-                    }else{
+                    } else {
                         continue
                     }
                 }
+            }
+            job?.invokeOnCompletion {
+                buttonText.value = "Send"
+                job = null
             }
         }
         clearComposeInput()
@@ -176,14 +202,32 @@ class ComposeSendActivity : AppCompatActivity() {
                         input = charDelayStr,
                         label = stringResource(R.string.char_delay),
                     )
+                    Checkbox(
+                        checked = isTrimChecked.value,
+                        onCheckedChange = {isChecked: Boolean -> isTrimChecked.value = isChecked},
+                        colors = CheckboxDefaults.colors(),
+                        modifier = Modifier
+                            .padding(bottom = 98.dp)
+                            .padding(start = 150.dp)
+                            .align(Alignment.BottomStart)
+
+                    )
+                    Text(
+                        text = "Trim",
+                        modifier = Modifier
+                            .padding(bottom = 110.dp)
+                            .padding(start = 190.dp)
+                            .align(Alignment.BottomStart),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                     KdeTextButton(
                         onClick = { sendComposed() },
                         modifier = Modifier
                             .padding(all = 16.dp)
                             .padding(bottom = 80.dp)
                             .align(Alignment.BottomEnd),
-                        enabled = userInput.value.isNotEmpty(),
-                        text = stringResource(R.string.send_compose),
+                        enabled = userInput.value.isNotEmpty() || job != null,
+                        text = buttonText.value,
                         iconLeft = Icons.Default.Send,
                     )
                 }
