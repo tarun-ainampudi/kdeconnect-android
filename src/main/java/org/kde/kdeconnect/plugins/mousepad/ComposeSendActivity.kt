@@ -96,8 +96,9 @@ class ComposeSendActivity : AppCompatActivity() {
         if (charDelay == 0 && lineDelay == 0 &&  randomLineDelay == 0){
             job =lifecycleScope.launch {
                 buttonText.value = "Stop"
-                for(line in tempList){
+                for((index,line) in tempList.withIndex()){
                     plugin.sendText(line);
+                    if (tempList.size - 1 == index) continue
                     plugin.sendEnter();
                 }
             }
@@ -119,9 +120,9 @@ class ComposeSendActivity : AppCompatActivity() {
                         }
                     }
 
-                    plugin.sendEnter()
-
                     if (tempList.size - 1 == index) continue
+
+                    plugin.sendEnter()
 
                     if ((0..100).random() <= 30 && nPauses > 0) {
                         delay((randomLineDelay..randomLineDelay + 1000).random().toLong())
